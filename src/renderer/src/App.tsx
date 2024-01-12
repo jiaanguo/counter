@@ -2,26 +2,76 @@ import Versions from './components/Versions'
 import icons from './assets/icons.svg'
 
 import React, { useState } from 'react'
+import * as Papa from 'papaparse';
+
 
 const App: React.FC = () => {
   const [countUp, setCountUp] = useState(0)
   const [countDown, setCountDown] = useState(0)
   const [totalCount, setTotalCount] = useState(0)
+  const [decisionHistory, setDecisionHistory] = useState<string[]>([]);
+  const [updatedHistory, setUpdatedHistory] = useState<string[]>([]);
+  const [historyLimit, setHistoryLimit] = useState<number | null>(null);
 
   const handleCountUp = () => {
     setCountUp(countUp + 1)
     setTotalCount(totalCount + 1)
+    setDecisionHistory(['Up', ...decisionHistory])
+    setUpdatedHistory(['Up', ...decisionHistory].slice(0, historyLimit === null ? -1 : historyLimit));
   }
 
   const handleCountDown = () => {
     setCountDown(countDown + 1)
     setTotalCount(totalCount + 1)
+    setDecisionHistory(['Down', ...decisionHistory])
+    setUpdatedHistory(['Down', ...decisionHistory].slice(0, historyLimit === null ? -1 : historyLimit));
   }
 
   const calculatePercentage = (count: number): string => {
     const percentage = totalCount === 0 ? 0 : (count / totalCount) * 100
     return percentage.toFixed(2) + '%'
   }
+
+  const calculateTailoredPercentage = (count: number): string => {
+
+    if (historyLimit) {
+      let countUp = 0;
+      let countDown = 0;
+      for (let i = 0; i < historyLimit; i++) {
+        if (decisionHistory[i] === 'Up') {
+          countUp++;
+        } else {
+          countDown++;
+        }
+      }
+    }
+
+    // const percentage = historyLimit === 0 ? 0 : (count / historyLimit) * 100
+    // return percentage.toFixed(2) + '%'
+    return ""
+  }
+
+  const exportToCSV = () => {
+    const csv = Papa.unparse({
+      fields: ['Decision'],
+      data: decisionHistory.map((decision) => [decision]),
+    });
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+
+    if (link.download !== undefined) {
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', 'decision_history.csv');
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } else {
+      alert('Your browser does not support the download feature. Please try another browser.');
+    }
+  };
+
 
   return (
     <div className="app-container">
@@ -42,6 +92,37 @@ const App: React.FC = () => {
         </div>
         <button onClick={handleCountDown}>Count Down</button>
       </div>
+
+      <div className="decision-history">
+        <h2>Decision History:</h2>
+        <label htmlFor="history-limit">History Limit:</label>
+        <input
+          type="number"
+          id="history-limit"
+          value={historyLimit || ''}
+          onChange={(e) => {
+            const historyLimit = e.target.value !== '' ? parseInt(e.target.value, 10) : null;
+            setHistoryLimit(historyLimit);
+            setUpdatedHistory([...decisionHistory].slice(0, historyLimit === null ? -1 : historyLimit));
+          }
+          }
+
+        />
+        <button onClick={exportToCSV}>Export to CSV</button>
+        <ul>
+          {decisionHistory.map((decision, index) => (
+            <li key={index}>{decision}</li>
+          ))}
+        </ul>
+      </div>
+      {/* <div className="decision-history">
+        <h2>Decision History:</h2>
+        <ul>
+          {decisionHistory.map((decision, index) => (
+            <li key={index}>{decision}</li>
+          ))}
+        </ul>
+      </div> */}
     </div>
   )
 }
