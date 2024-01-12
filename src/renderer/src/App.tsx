@@ -10,21 +10,18 @@ const App: React.FC = () => {
   const [countDown, setCountDown] = useState(0)
   const [totalCount, setTotalCount] = useState(0)
   const [decisionHistory, setDecisionHistory] = useState<string[]>([]);
-  const [updatedHistory, setUpdatedHistory] = useState<string[]>([]);
   const [historyLimit, setHistoryLimit] = useState<number | null>(null);
 
   const handleCountUp = () => {
     setCountUp(countUp + 1)
     setTotalCount(totalCount + 1)
     setDecisionHistory(['Up', ...decisionHistory])
-    setUpdatedHistory(['Up', ...decisionHistory].slice(0, historyLimit === null ? -1 : historyLimit));
   }
 
   const handleCountDown = () => {
     setCountDown(countDown + 1)
     setTotalCount(totalCount + 1)
     setDecisionHistory(['Down', ...decisionHistory])
-    setUpdatedHistory(['Down', ...decisionHistory].slice(0, historyLimit === null ? -1 : historyLimit));
   }
 
   const calculatePercentage = (count: number): string => {
@@ -73,6 +70,29 @@ const App: React.FC = () => {
   };
 
 
+  const revokeHistory = () => {
+    if (decisionHistory.length === 0) {
+      return;
+    }
+
+    const last = decisionHistory[0];
+    setDecisionHistory(decisionHistory.slice(1, decisionHistory.length));
+    if (last === 'Up') {
+      setCountUp(countUp - 1);
+    } else {
+      setCountDown(countDown - 1);
+    }
+    setTotalCount(totalCount - 1);
+  }
+
+  const clearHistory = () => {
+    setDecisionHistory([]);
+    setCountUp(0);
+    setCountDown(0);
+    setTotalCount(0);
+  }
+
+
   return (
     <div className="app-container">
       <div className="counter-container">
@@ -81,7 +101,12 @@ const App: React.FC = () => {
           <span>{countUp}</span>
           <p>Percentage: {calculatePercentage(countUp)}</p>
         </div>
-        <button onClick={handleCountUp}>Count Up</button>
+        <div>
+          <button onClick={handleCountUp}>Count Up</button>
+        </div>
+        <div>
+          <button onClick={revokeHistory}>Revoke History</button>
+        </div>
       </div>
 
       <div className="counter-container">
@@ -90,12 +115,17 @@ const App: React.FC = () => {
           <span>{countDown}</span>
           <p>Percentage: {calculatePercentage(countDown)}</p>
         </div>
-        <button onClick={handleCountDown}>Count Down</button>
+        <div>
+          <button onClick={handleCountDown}>Count Down</button>
+        </div>
+        <div>
+          <button onClick={clearHistory}>Clear History</button>
+        </div>
       </div>
 
       <div className="decision-history">
         <h2>Decision History:</h2>
-        <label htmlFor="history-limit">History Limit:</label>
+        <label htmlFor="history-limit">History View Limit:</label>
         <input
           type="number"
           id="history-limit"
@@ -103,17 +133,18 @@ const App: React.FC = () => {
           onChange={(e) => {
             const historyLimit = e.target.value !== '' ? parseInt(e.target.value, 10) : null;
             setHistoryLimit(historyLimit);
-            setUpdatedHistory([...decisionHistory].slice(0, historyLimit === null ? -1 : historyLimit));
           }
           }
 
         />
-        <button onClick={exportToCSV}>Export to CSV</button>
         <ul>
-          {decisionHistory.map((decision, index) => (
-            <li key={index}>{decision}</li>
+          {decisionHistory
+            .slice(0, historyLimit === null ? decisionHistory.length : historyLimit)
+            .map((decision, index) => (
+              <li key={index}>{decision}</li>
           ))}
         </ul>
+        <button onClick={exportToCSV}>Export to CSV</button>
       </div>
       {/* <div className="decision-history">
         <h2>Decision History:</h2>
