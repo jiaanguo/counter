@@ -1,27 +1,23 @@
-import Versions from './components/Versions'
-import icons from './assets/icons.svg'
-
 import React, { useState } from 'react'
-import * as Papa from 'papaparse';
-
+import * as Papa from 'papaparse'
 
 const App: React.FC = () => {
   const [countUp, setCountUp] = useState(0)
   const [countDown, setCountDown] = useState(0)
   const [totalCount, setTotalCount] = useState(0)
-  const [decisionHistory, setDecisionHistory] = useState<string[]>([]);
-  const [historyLimit, setHistoryLimit] = useState<number | null>(null);
+  const [decisionHistory, setDecisionHistory] = useState<string[]>([])
+  const [historyLimit, setHistoryLimit] = useState<number | null>(null)
 
   const handleCountUp = () => {
     setCountUp(countUp + 1)
     setTotalCount(totalCount + 1)
-    setDecisionHistory(['Up', ...decisionHistory])
+    setDecisionHistory(['上升', ...decisionHistory])
   }
 
   const handleCountDown = () => {
     setCountDown(countDown + 1)
     setTotalCount(totalCount + 1)
-    setDecisionHistory(['Down', ...decisionHistory])
+    setDecisionHistory(['下降', ...decisionHistory])
   }
 
   const calculatePercentage = (count: number): string => {
@@ -29,131 +25,155 @@ const App: React.FC = () => {
     return percentage.toFixed(2) + '%'
   }
 
-  const calculateTailoredPercentage = (count: number): string => {
-
-    if (historyLimit) {
-      let countUp = 0;
-      let countDown = 0;
-      for (let i = 0; i < historyLimit; i++) {
-        if (decisionHistory[i] === 'Up') {
-          countUp++;
+  const calculateViewPercentage = (count: number, up: boolean): string => {
+    if (historyLimit === null) {
+      const percentage = totalCount === 0 ? 0 : (count / totalCount) * 100
+      return percentage.toFixed(2) + '%'
+    } else {
+      const total = Math.min(totalCount, historyLimit)
+      let countUp = 0
+      let countDown = 0
+      for (let i = 0; i < total; i++) {
+        if (decisionHistory[i] === '上升') {
+          countUp += 1
         } else {
-          countDown++;
+          countDown += 1
         }
       }
+      if (up) {
+        const percentage = total === 0 ? 0 : (countUp / total) * 100
+        return percentage.toFixed(2) + '%'
+      } else {
+        const percentage = total === 0 ? 0 : (countDown / total) * 100
+        return percentage.toFixed(2) + '%'
+      }
     }
-
-    // const percentage = historyLimit === 0 ? 0 : (count / historyLimit) * 100
-    // return percentage.toFixed(2) + '%'
-    return ""
   }
 
   const exportToCSV = () => {
     const csv = Papa.unparse({
-      fields: ['Decision'],
-      data: decisionHistory.map((decision) => [decision]),
-    });
+      fields: ['决策历史'],
+      data: decisionHistory.map((decision) => [decision])
+    })
 
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const link = document.createElement('a')
 
     if (link.download !== undefined) {
-      const url = URL.createObjectURL(blob);
-      link.setAttribute('href', url);
-      link.setAttribute('download', 'decision_history.csv');
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      const url = URL.createObjectURL(blob)
+      link.setAttribute('href', url)
+      link.setAttribute('download', '决策历史.csv')
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
     } else {
-      alert('Your browser does not support the download feature. Please try another browser.');
+      alert('Your browser does not support the download feature. Please try another browser.')
     }
-  };
+  }
 
+  const exportViewToCSV = () => {
+    const csv = Papa.unparse({
+      fields: ['决策历史'],
+      data: decisionHistory
+        .slice(0, historyLimit === null ? decisionHistory.length : historyLimit)
+        .map((decision) => [decision])
+    })
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const link = document.createElement('a')
+
+    if (link.download !== undefined) {
+      const url = URL.createObjectURL(blob)
+      link.setAttribute('href', url)
+      link.setAttribute('download', '决策历史.csv')
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+    } else {
+      alert('Your browser does not support the download feature. Please try another browser.')
+    }
+  }
 
   const revokeHistory = () => {
     if (decisionHistory.length === 0) {
-      return;
+      return
     }
 
-    const last = decisionHistory[0];
-    setDecisionHistory(decisionHistory.slice(1, decisionHistory.length));
-    if (last === 'Up') {
-      setCountUp(countUp - 1);
+    const last = decisionHistory[0]
+    setDecisionHistory(decisionHistory.slice(1, decisionHistory.length))
+    if (last === '上升') {
+      setCountUp(countUp - 1)
     } else {
-      setCountDown(countDown - 1);
+      setCountDown(countDown - 1)
     }
-    setTotalCount(totalCount - 1);
+    setTotalCount(totalCount - 1)
   }
 
   const clearHistory = () => {
-    setDecisionHistory([]);
-    setCountUp(0);
-    setCountDown(0);
-    setTotalCount(0);
+    setDecisionHistory([])
+    setCountUp(0)
+    setCountDown(0)
+    setTotalCount(0)
   }
-
 
   return (
     <div className="app-container">
       <div className="counter-container">
-        <h1>Count Up:</h1>
+        <h1>上升:</h1>
         <div className="counter">
           <span>{countUp}</span>
-          <p>Percentage: {calculatePercentage(countUp)}</p>
+          <p>历史上升占比: {calculatePercentage(countUp)}</p>
         </div>
         <div>
-          <button onClick={handleCountUp}>Count Up</button>
+          <button onClick={handleCountUp}>上升</button>
         </div>
         <div>
-          <button onClick={revokeHistory}>Revoke History</button>
+          <button onClick={revokeHistory}>撤销</button>
         </div>
       </div>
 
       <div className="counter-container">
-        <h1>Count Down:</h1>
+        <h1>下降:</h1>
         <div className="counter">
           <span>{countDown}</span>
-          <p>Percentage: {calculatePercentage(countDown)}</p>
+          <p>历史下降占比: {calculatePercentage(countDown)}</p>
         </div>
         <div>
-          <button onClick={handleCountDown}>Count Down</button>
+          <button onClick={handleCountDown}>下降</button>
         </div>
         <div>
-          <button onClick={clearHistory}>Clear History</button>
+          <button onClick={clearHistory}>清除</button>
         </div>
       </div>
 
       <div className="decision-history">
-        <h2>Decision History:</h2>
-        <label htmlFor="history-limit">History View Limit:</label>
+        <h2>决策历史:</h2>
+        <label htmlFor="history-limit">决策窗口上限:</label>
         <input
           type="number"
           id="history-limit"
           value={historyLimit || ''}
           onChange={(e) => {
-            const historyLimit = e.target.value !== '' ? parseInt(e.target.value, 10) : null;
-            setHistoryLimit(historyLimit);
-          }
-          }
-
+            const historyLimit = e.target.value !== '' ? parseInt(e.target.value, 10) : null
+            setHistoryLimit(historyLimit)
+          }}
         />
-        <ul>
-          {decisionHistory
-            .slice(0, historyLimit === null ? decisionHistory.length : historyLimit)
-            .map((decision, index) => (
-              <li key={index}>{decision}</li>
-          ))}
-        </ul>
-        <button onClick={exportToCSV}>Export to CSV</button>
+        <div className="decision-history-container">
+          <div className="decision-history-list">
+            <ul>
+              {decisionHistory
+                .slice(0, historyLimit === null ? decisionHistory.length : historyLimit)
+                .map((decision, index) => (
+                  <li key={index}>{decision}</li>
+                ))}
+            </ul>
+          </div>
+        </div>
+        <p>窗口上升占比: {calculateViewPercentage(countUp, true)}</p>
+        <p>窗口下降占比: {calculateViewPercentage(countDown, false)}</p>
+        <button onClick={exportToCSV}>输出决策历史</button>
+        <button onClick={exportViewToCSV}>输出决策窗口</button>
       </div>
-      {/* <div className="decision-history">
-        <h2>Decision History:</h2>
-        <ul>
-          {decisionHistory.map((decision, index) => (
-            <li key={index}>{decision}</li>
-          ))}
-        </ul>
-      </div> */}
     </div>
   )
 }

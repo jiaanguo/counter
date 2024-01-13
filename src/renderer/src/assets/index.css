@@ -225,6 +225,21 @@ a:hover {
   margin-bottom: 10px;
 }
 
+.decision-history-container {
+  margin: 20px 0px;
+  display: flex;
+  flex-direction: column;
+  overflow-y: scroll;
+  height: 320px;
+}
+
+.decision-history-list {
+  align-items: center;
+  justify-content: center;
+  overflow-y: auto;
+  flex: none;
+}
+
 button {
   margin: 10px 0;
   padding: 10px;
