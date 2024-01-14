@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import * as Papa from 'papaparse'
 import { is } from '@electron-toolkit/utils'
 
@@ -15,10 +15,17 @@ const App: React.FC = () => {
   const [currentState, setCurrentState] = useState<[number, number]>([0, 0])
   const [previousState, setPreviousState] = useState<[number, number]>([0, 0])
   const [numberOfStates, setNumberOfStates] = useState<number>(0)
-  const [transitionProbabilities, setTransitionProbabilities] = useState<number[][]>([[]])
+  const [transitionProbabilities, setTransitionProbabilities] = useState<number[][]>([])
   const [isLimitedRandom, setIsLimitedRandom] = useState<boolean>(false);
-
+  const [isSidebarVisible, setIsSidebarVisible] = useState(true);
+  const [mostLikely, setMostLikely] = useState<[number, number, string, number][]>();
   const [score, setScore] = useState<number>(0);
+
+
+  // useEffect with an empty dependency array to ensure it runs only once when the component mounts
+  useEffect(() => {
+    init();
+  }, []);
 
   const init = () => {
 
@@ -48,12 +55,15 @@ const App: React.FC = () => {
 
     let currentState: [number, number] = [0, 0];
     let nextState: [number, number, string, number] = [0, 0, "上升", 0];
+    let mostLikely: [number, number, string, number][] = [];
     for (let i = 0; i < numberOfStates; i++) {
       nextState = getMostLikelyNextState(currentState, transitionProbabilities);
       currentState[0] = nextState[0];
       currentState[1] = nextState[1];
+      mostLikely.push(nextState);
       console.log(nextState[2], nextState[3]);
     }
+    setMostLikely(mostLikely);
   }
 
   const genNumber = (posX: number, posY: number, transitionProbabilities: number[][], numberOfStates: number) => {
@@ -97,20 +107,20 @@ const App: React.FC = () => {
   }
 
 
-  const getMostLikelyNextState = (currentState: [number, number], transitionProbabilities: number[][]): [number, number, string, number] => {
+  const getMostLikelyNextState = (currentState: [number, number], transitionProbabilities: number[][]): [number, number, string, string] => {
     let length = transitionProbabilities[0].length;
     if (transitionProbabilities[currentState[0]][currentState[1]] >= 0.5) {
       if (currentState[1] + 1 === length) {
-        return [0, 0, "上升", transitionProbabilities[currentState[0]][currentState[1]]];
+        return [0, 0, "上升", transitionProbabilities[currentState[0]][currentState[1]].toFixed(2)];
       } else {
-        return [currentState[0], currentState[1] + 1, "上升", transitionProbabilities[currentState[0]][currentState[1]]];
+        return [currentState[0], currentState[1] + 1, "上升", transitionProbabilities[currentState[0]][currentState[1]].toFixed(2)];
       }
     } else {
       const stride = 2 ** (length - currentState[1] - 2)
       if (currentState[1] + 1 === length) {
-        return [0, 0, "下降", 1 - transitionProbabilities[currentState[0]][currentState[1]]];
+        return [0, 0, "下降", (1 - transitionProbabilities[currentState[0]][currentState[1]]).toFixed(2)];
       } else {
-        return [currentState[0] + stride, currentState[1] + 1, "下降", 1 - transitionProbabilities[currentState[0]][currentState[1]]];
+        return [currentState[0] + stride, currentState[1] + 1, "下降", (1 - transitionProbabilities[currentState[0]][currentState[1]]).toFixed(2)];
       }
 
     }
@@ -195,8 +205,8 @@ const App: React.FC = () => {
 
   const exportToCSV = () => {
     const csv = Papa.unparse({
-      fields: ['决策历史'],
-      data: decisionHistory.map((decision) => [decision])
+      fields: ['决策', '真实', '对错'],
+      data: decisionHistory.map((decision, index) => [decision, trueHistory[index], decision === trueHistory[index] ? '✅' : '❌'])
     })
 
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
@@ -214,6 +224,7 @@ const App: React.FC = () => {
     }
   }
 
+  // DEPRECATED
   const exportViewToCSV = () => {
     const csv = Papa.unparse({
       fields: ['决策历史'],
@@ -337,18 +348,34 @@ const App: React.FC = () => {
             <ul>
               <li className="header">决策 真实 对错</li>
               {decisionHistory
-                .slice(0, historyLimit === null ? decisionHistory.length : historyLimit)
+                // .slice(0, historyLimit === null ? decisionHistory.length : historyLimit)
                 .map((decision, index) => (
-                  <li key={index}>{decision} {trueHistory[index]} {decision === trueHistory[index] ? '✅' : '❌'}</li>
+                  <div>
+                    <li hidden={
+                      historyLimit === null ? true : (index % historyLimit === (decisionHistory.length % historyLimit) ? false : true)} key={index}> -- </li>
+                    <li key={index}>{decision} {trueHistory[index]} {decision === trueHistory[index] ? '✅' : '❌'}</li>
+                  </div>
                 ))}
             </ul>
           </div>
         </div>
-        <p>窗口上升占比: {calculateViewPercentage(trueUp, true)}</p>
-        <p>窗口下降占比: {calculateViewPercentage(trueDown, false)}</p>
+        {/* <p>窗口上升占比: {calculateViewPercentage(trueUp, true)}</p> */}
+        {/* <p>窗口下降占比: {calculateViewPercentage(trueDown, false)}</p> */}
         <button onClick={exportToCSV}>输出决策历史</button>
-        <button onClick={exportViewToCSV}>输出决策窗口</button>
+        <button onClick={() => setIsSidebarVisible(!isSidebarVisible)}>来骗！来偷袭！</button>
+
+        {/* <button onClick={exportViewToCSV}>输出决策窗口</button> */}
       </div>
+      <div className={`app-container ${isSidebarVisible ? '' : 'sidebar-hidden'}`}>
+        <div className="sidebar">
+          <ul>
+            <li>"NumStates: " {numberOfStates}</li>
+            {/* <li>"TransitionProbabilities: " {transitionProbabilities}</li> */}
+            {mostLikely !== undefined ? mostLikely.map((item, index) => (<li key={index}>{item[2]}, {item[3]}</li>)) : null}
+
+          </ul>
+        </div>
+      </div >
     </div>
   )
 }
