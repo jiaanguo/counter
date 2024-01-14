@@ -1,23 +1,166 @@
 import React, { useState } from 'react'
 import * as Papa from 'papaparse'
+import { is } from '@electron-toolkit/utils'
 
 const App: React.FC = () => {
   const [countUp, setCountUp] = useState(0)
   const [countDown, setCountDown] = useState(0)
+  const [trueUp, setTrueUp] = useState(0)
+  const [trueDown, setTrueDown] = useState(0)
   const [totalCount, setTotalCount] = useState(0)
   const [decisionHistory, setDecisionHistory] = useState<string[]>([])
+  const [trueHistory, setTrueHistory] = useState<string[]>([])
   const [historyLimit, setHistoryLimit] = useState<number | null>(null)
+
+  const [currentState, setCurrentState] = useState<[number, number]>([0, 0])
+  const [previousState, setPreviousState] = useState<[number, number]>([0, 0])
+  const [numberOfStates, setNumberOfStates] = useState<number>(0)
+  const [transitionProbabilities, setTransitionProbabilities] = useState<number[][]>([[]])
+  const [isLimitedRandom, setIsLimitedRandom] = useState<boolean>(false);
+
+  const [score, setScore] = useState<number>(0);
+
+  const init = () => {
+
+    const min = 2;
+    const max = 4;
+    const randomValue = Math.random() * (max - min + 1) + min;
+    const numberOfStates = Math.floor(randomValue);
+    setNumberOfStates(numberOfStates);
+    console.log("NumStates: " + numberOfStates);
+
+
+    let transitionProbabilities: number[][] = Array.from({ length: 2 ** (numberOfStates - 1) }, () =>
+      Array.from({ length: numberOfStates }, () => 0.0)
+    );
+
+    let transitionProbabilitiesEG = [
+      [0.2, 0.5, 0.3],
+      [0.0, 0.0, 0.4],
+      [0.0, 0.7, 0.2],
+      [0.0, 0.0, 0.1],
+    ];
+
+
+    genNumber(0, 0, transitionProbabilities, numberOfStates);
+    setTransitionProbabilities(transitionProbabilities);
+    console.log("TransitionProbabilities: ", transitionProbabilities);
+
+    let currentState: [number, number] = [0, 0];
+    let nextState: [number, number, string, number] = [0, 0, "上升", 0];
+    for (let i = 0; i < numberOfStates; i++) {
+      nextState = getMostLikelyNextState(currentState, transitionProbabilities);
+      currentState[0] = nextState[0];
+      currentState[1] = nextState[1];
+      console.log(nextState[2], nextState[3]);
+    }
+  }
+
+  const genNumber = (posX: number, posY: number, transitionProbabilities: number[][], numberOfStates: number) => {
+    if (posY === numberOfStates) {
+      return;
+    }
+
+    let randomNumber = Math.random();
+    if (isLimitedRandom) {
+      // between 0.0 and 0.3
+      const min = 0.0;
+      const max = 0.3;
+      const limitedRandomNumber = randomNumber * (max - min) + min;
+      randomNumber = randomNumber >= 0.5 ? limitedRandomNumber : 1 - limitedRandomNumber;
+    }
+
+    transitionProbabilities[posX][posY] = Number(randomNumber.toFixed(2));
+    genNumber(posX, posY + 1, transitionProbabilities, numberOfStates);
+    const stride = 2 ** (numberOfStates - posY - 2)
+    genNumber(posX + stride, posY + 1, transitionProbabilities, numberOfStates);
+  }
+
+  const getNextState = (currentState: [number, number], transitionProbabilities: number[][]): [number, number, string] => {
+    let decision = Math.random();
+    let length = transitionProbabilities[0].length;
+    if (decision < transitionProbabilities[currentState[0]][currentState[1]]) {
+      if (currentState[1] + 1 === length) {
+        return [0, 0, "上升"];
+      } else {
+        return [currentState[0], currentState[1] + 1, "上升"];
+      }
+    } else {
+      const stride = 2 ** (length - currentState[1] - 2)
+      if (currentState[1] + 1 === length) {
+        return [0, 0, "下降"];
+      } else {
+        return [currentState[0] + stride, currentState[1] + 1, "下降"];
+      }
+
+    }
+  }
+
+
+  const getMostLikelyNextState = (currentState: [number, number], transitionProbabilities: number[][]): [number, number, string, number] => {
+    let length = transitionProbabilities[0].length;
+    if (transitionProbabilities[currentState[0]][currentState[1]] >= 0.5) {
+      if (currentState[1] + 1 === length) {
+        return [0, 0, "上升", transitionProbabilities[currentState[0]][currentState[1]]];
+      } else {
+        return [currentState[0], currentState[1] + 1, "上升", transitionProbabilities[currentState[0]][currentState[1]]];
+      }
+    } else {
+      const stride = 2 ** (length - currentState[1] - 2)
+      if (currentState[1] + 1 === length) {
+        return [0, 0, "下降", 1 - transitionProbabilities[currentState[0]][currentState[1]]];
+      } else {
+        return [currentState[0] + stride, currentState[1] + 1, "下降", 1 - transitionProbabilities[currentState[0]][currentState[1]]];
+      }
+
+    }
+  }
+
 
   const handleCountUp = () => {
     setCountUp(countUp + 1)
     setTotalCount(totalCount + 1)
     setDecisionHistory(['上升', ...decisionHistory])
+    let nextState = getNextState(currentState, transitionProbabilities);
+    setPreviousState(currentState);
+    setCurrentState([nextState[0], nextState[1]]);
+    setTrueHistory([nextState[2], ...trueHistory]);
+
+    if (nextState[2] === '上升') {
+      setTrueUp(trueUp + 1)
+    } else {
+      setTrueDown(trueDown + 1)
+    }
+
+    if (nextState[2] === '上升') {
+      setScore(score + 5);
+    } else {
+      setScore(score - 5);
+    }
+    // console.log(nextState[0], nextState[1], nextState[2]);
   }
 
   const handleCountDown = () => {
     setCountDown(countDown + 1)
     setTotalCount(totalCount + 1)
     setDecisionHistory(['下降', ...decisionHistory])
+
+    let nextState = getNextState(currentState, transitionProbabilities);
+    setPreviousState(currentState);
+    setCurrentState([nextState[0], nextState[1]]);
+    setTrueHistory([nextState[2], ...trueHistory]);
+
+    if (nextState[2] === '上升') {
+      setTrueUp(trueUp + 1)
+    } else {
+      setTrueDown(trueDown + 1)
+    }
+
+    if (nextState[2] === '下降') {
+      setScore(score + 5);
+    } else {
+      setScore(score - 5);
+    }
   }
 
   const calculatePercentage = (count: number): string => {
@@ -94,6 +237,7 @@ const App: React.FC = () => {
     }
   }
 
+  // TODO： 撤销多次历史
   const revokeHistory = () => {
     if (decisionHistory.length === 0) {
       return
@@ -106,37 +250,67 @@ const App: React.FC = () => {
     } else {
       setCountDown(countDown - 1)
     }
+
+    const trueLast = trueHistory[0]
+    setTrueHistory(trueHistory.slice(1, trueHistory.length))
+    if (trueLast === '上升') {
+      setTrueUp(trueUp - 1)
+    } else {
+      setTrueDown(trueDown - 1)
+    }
+
+    // TODO： 撤销多次历史,score
+    // setPreviousState(...);
+    setCurrentState(previousState);
+
     setTotalCount(totalCount - 1)
   }
 
   const clearHistory = () => {
     setDecisionHistory([])
+    setTrueHistory([])
     setCountUp(0)
     setCountDown(0)
+    setTrueUp(0)
+    setTrueDown(0)
     setTotalCount(0)
+    setCurrentState([0, 0]);
+    setScore(0);
   }
 
   return (
     <div className="app-container">
       <div className="counter-container">
-        <h1>上升:</h1>
+        <h1>真实上升:</h1>
         <div className="counter">
-          <span>{countUp}</span>
-          <p>历史上升占比: {calculatePercentage(countUp)}</p>
+          <span>{trueUp}</span>
+          <p>真实上升占比: {calculatePercentage(trueUp)}</p>
         </div>
         <div>
           <button onClick={handleCountUp}>上升</button>
         </div>
         <div>
-          <button onClick={revokeHistory}>撤销</button>
+          <button onClick={init}>初始化</button>
+          <div className="decision-options">
+            <label>
+              LimitedRandom( gt 0.7 ):
+              <input
+                type="checkbox"
+                checked={isLimitedRandom}
+                onChange={() => setIsLimitedRandom(!isLimitedRandom)}
+              />
+            </label>
+          </div>
+
+          {/* <button onClick={revokeHistory}>撤销</button> */}
         </div>
       </div>
 
       <div className="counter-container">
-        <h1>下降:</h1>
+        <h1>真实下降:</h1>
         <div className="counter">
-          <span>{countDown}</span>
-          <p>历史下降占比: {calculatePercentage(countDown)}</p>
+          <span>{trueDown}</span>
+          <p>真实下降占比: {calculatePercentage(trueDown)}</p>
         </div>
         <div>
           <button onClick={handleCountDown}>下降</button>
@@ -147,7 +321,7 @@ const App: React.FC = () => {
       </div>
 
       <div className="decision-history">
-        <h2>决策历史:</h2>
+        <h2>决策历史: {score}</h2>
         <label htmlFor="history-limit">决策窗口上限:</label>
         <input
           type="number"
@@ -161,16 +335,17 @@ const App: React.FC = () => {
         <div className="decision-history-container">
           <div className="decision-history-list">
             <ul>
+              <li className="header">决策 真实 对错</li>
               {decisionHistory
                 .slice(0, historyLimit === null ? decisionHistory.length : historyLimit)
                 .map((decision, index) => (
-                  <li key={index}>{decision}</li>
+                  <li key={index}>{decision} {trueHistory[index]} {decision === trueHistory[index] ? '✅' : '❌'}</li>
                 ))}
             </ul>
           </div>
         </div>
-        <p>窗口上升占比: {calculateViewPercentage(countUp, true)}</p>
-        <p>窗口下降占比: {calculateViewPercentage(countDown, false)}</p>
+        <p>窗口上升占比: {calculateViewPercentage(trueUp, true)}</p>
+        <p>窗口下降占比: {calculateViewPercentage(trueDown, false)}</p>
         <button onClick={exportToCSV}>输出决策历史</button>
         <button onClick={exportViewToCSV}>输出决策窗口</button>
       </div>
