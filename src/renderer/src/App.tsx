@@ -17,7 +17,7 @@ const App: React.FC = () => {
   const [numberOfStates, setNumberOfStates] = useState<number>(0)
   const [transitionProbabilities, setTransitionProbabilities] = useState<number[][]>([])
   const [isLimitedRandom, setIsLimitedRandom] = useState<boolean>(false);
-  const [isSidebarVisible, setIsSidebarVisible] = useState(true);
+  const [isSidebarVisible, setIsSidebarVisible] = useState<boolean>(false);
   const [mostLikely, setMostLikely] = useState<[number, number, string, number][]>();
   const [score, setScore] = useState<number>(0);
 
@@ -352,7 +352,7 @@ const App: React.FC = () => {
                 .map((decision, index) => (
                   <div>
                     <li hidden={
-                      historyLimit === null ? true : (index % historyLimit === (decisionHistory.length % historyLimit) ? false : true)} key={index}> -- </li>
+                      historyLimit === null ? true : (index % historyLimit === (decisionHistory.length % historyLimit) ? false : true)} key={index}> -- {historyLimit === null ? 0 : (decisionHistory.length - index) / historyLimit}</li>
                     <li key={index}>{decision} {trueHistory[index]} {decision === trueHistory[index] ? '✅' : '❌'}</li>
                   </div>
                 ))}
