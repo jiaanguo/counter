@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react'
 import * as Papa from 'papaparse'
-import { is } from '@electron-toolkit/utils'
 
 const App: React.FC = () => {
   const [countUp, setCountUp] = useState(0)
@@ -13,128 +12,147 @@ const App: React.FC = () => {
   const [historyLimit, setHistoryLimit] = useState<number | null>(null)
 
   const [currentState, setCurrentState] = useState<[number, number]>([0, 0])
-  const [previousState, setPreviousState] = useState<[number, number]>([0, 0])
+  // const [previousState, setPreviousState] = useState<[number, number]>([0, 0])
   const [numberOfStates, setNumberOfStates] = useState<number>(0)
   const [transitionProbabilities, setTransitionProbabilities] = useState<number[][]>([])
-  const [isLimitedRandom, setIsLimitedRandom] = useState<boolean>(false);
-  const [isSidebarVisible, setIsSidebarVisible] = useState<boolean>(false);
-  const [mostLikely, setMostLikely] = useState<[number, number, string, number][]>();
-  const [score, setScore] = useState<number>(0);
-
+  const [isLimitedRandom, setIsLimitedRandom] = useState<boolean>(false)
+  const [isSidebarVisible, setIsSidebarVisible] = useState<boolean>(false)
+  const [mostLikely, setMostLikely] = useState<[number, number, string, string][]>()
+  const [score, setScore] = useState<number>(0)
 
   // useEffect with an empty dependency array to ensure it runs only once when the component mounts
   useEffect(() => {
-    init();
-  }, []);
+    init()
+  }, [])
 
-  const init = () => {
+  const init = (): void => {
+    const min = 2
+    const max = 4
+    const randomValue = Math.random() * (max - min + 1) + min
+    const numberOfStates = Math.floor(randomValue)
+    setNumberOfStates(numberOfStates)
+    console.log('NumStates: ' + numberOfStates)
 
-    const min = 2;
-    const max = 4;
-    const randomValue = Math.random() * (max - min + 1) + min;
-    const numberOfStates = Math.floor(randomValue);
-    setNumberOfStates(numberOfStates);
-    console.log("NumStates: " + numberOfStates);
+    const transitionProbabilities: number[][] = Array.from(
+      { length: 2 ** (numberOfStates - 1) },
+      () => Array.from({ length: numberOfStates }, () => 0.0)
+    )
 
+    // let transitionProbabilitiesEG = [
+    //   [0.2, 0.5, 0.3],
+    //   [0.0, 0.0, 0.4],
+    //   [0.0, 0.7, 0.2],
+    //   [0.0, 0.0, 0.1]
+    // ]
 
-    let transitionProbabilities: number[][] = Array.from({ length: 2 ** (numberOfStates - 1) }, () =>
-      Array.from({ length: numberOfStates }, () => 0.0)
-    );
+    genNumber(0, 0, transitionProbabilities, numberOfStates)
+    setTransitionProbabilities(transitionProbabilities)
+    console.log('TransitionProbabilities: ', transitionProbabilities)
 
-    let transitionProbabilitiesEG = [
-      [0.2, 0.5, 0.3],
-      [0.0, 0.0, 0.4],
-      [0.0, 0.7, 0.2],
-      [0.0, 0.0, 0.1],
-    ];
-
-
-    genNumber(0, 0, transitionProbabilities, numberOfStates);
-    setTransitionProbabilities(transitionProbabilities);
-    console.log("TransitionProbabilities: ", transitionProbabilities);
-
-    let currentState: [number, number] = [0, 0];
-    let nextState: [number, number, string, number] = [0, 0, "上升", 0];
-    let mostLikely: [number, number, string, number][] = [];
+    const currentState: [number, number] = [0, 0]
+    let nextState: [number, number, string, string] = [0, 0, '上升', '0.0']
+    const mostLikely: [number, number, string, string][] = []
     for (let i = 0; i < numberOfStates; i++) {
-      nextState = getMostLikelyNextState(currentState, transitionProbabilities);
-      currentState[0] = nextState[0];
-      currentState[1] = nextState[1];
-      mostLikely.push(nextState);
-      console.log(nextState[2], nextState[3]);
+      nextState = getMostLikelyNextState(currentState, transitionProbabilities)
+      currentState[0] = nextState[0]
+      currentState[1] = nextState[1]
+      mostLikely.push(nextState)
+      console.log(nextState[2], nextState[3])
     }
-    setMostLikely(mostLikely);
+    setMostLikely(mostLikely)
   }
 
-  const genNumber = (posX: number, posY: number, transitionProbabilities: number[][], numberOfStates: number) => {
+  const genNumber = (
+    posX: number,
+    posY: number,
+    transitionProbabilities: number[][],
+    numberOfStates: number
+  ): void => {
     if (posY === numberOfStates) {
-      return;
+      return
     }
 
-    let randomNumber = Math.random();
+    let randomNumber = Math.random()
     if (isLimitedRandom) {
       // between 0.0 and 0.3
-      const min = 0.0;
-      const max = 0.3;
-      const limitedRandomNumber = randomNumber * (max - min) + min;
-      randomNumber = randomNumber >= 0.5 ? limitedRandomNumber : 1 - limitedRandomNumber;
+      const min = 0.0
+      const max = 0.3
+      const limitedRandomNumber = randomNumber * (max - min) + min
+      randomNumber = randomNumber >= 0.5 ? limitedRandomNumber : 1 - limitedRandomNumber
     }
 
-    transitionProbabilities[posX][posY] = Number(randomNumber.toFixed(2));
-    genNumber(posX, posY + 1, transitionProbabilities, numberOfStates);
+    transitionProbabilities[posX][posY] = Number(randomNumber.toFixed(2))
+    genNumber(posX, posY + 1, transitionProbabilities, numberOfStates)
     const stride = 2 ** (numberOfStates - posY - 2)
-    genNumber(posX + stride, posY + 1, transitionProbabilities, numberOfStates);
+    genNumber(posX + stride, posY + 1, transitionProbabilities, numberOfStates)
   }
 
-  const getNextState = (currentState: [number, number], transitionProbabilities: number[][]): [number, number, string] => {
-    let decision = Math.random();
-    let length = transitionProbabilities[0].length;
+  const getNextState = (
+    currentState: [number, number],
+    transitionProbabilities: number[][]
+  ): [number, number, string] => {
+    const decision = Math.random()
+    const length = transitionProbabilities[0].length
     if (decision < transitionProbabilities[currentState[0]][currentState[1]]) {
       if (currentState[1] + 1 === length) {
-        return [0, 0, "上升"];
+        return [0, 0, '上升']
       } else {
-        return [currentState[0], currentState[1] + 1, "上升"];
+        return [currentState[0], currentState[1] + 1, '上升']
       }
     } else {
       const stride = 2 ** (length - currentState[1] - 2)
       if (currentState[1] + 1 === length) {
-        return [0, 0, "下降"];
+        return [0, 0, '下降']
       } else {
-        return [currentState[0] + stride, currentState[1] + 1, "下降"];
+        return [currentState[0] + stride, currentState[1] + 1, '下降']
       }
-
     }
   }
 
-
-  const getMostLikelyNextState = (currentState: [number, number], transitionProbabilities: number[][]): [number, number, string, string] => {
-    let length = transitionProbabilities[0].length;
+  const getMostLikelyNextState = (
+    currentState: [number, number],
+    transitionProbabilities: number[][]
+  ): [number, number, string, string] => {
+    const length = transitionProbabilities[0].length
     if (transitionProbabilities[currentState[0]][currentState[1]] >= 0.5) {
       if (currentState[1] + 1 === length) {
-        return [0, 0, "上升", transitionProbabilities[currentState[0]][currentState[1]].toFixed(2)];
+        return [0, 0, '上升', transitionProbabilities[currentState[0]][currentState[1]].toFixed(2)]
       } else {
-        return [currentState[0], currentState[1] + 1, "上升", transitionProbabilities[currentState[0]][currentState[1]].toFixed(2)];
+        return [
+          currentState[0],
+          currentState[1] + 1,
+          '上升',
+          transitionProbabilities[currentState[0]][currentState[1]].toFixed(2)
+        ]
       }
     } else {
       const stride = 2 ** (length - currentState[1] - 2)
       if (currentState[1] + 1 === length) {
-        return [0, 0, "下降", (1 - transitionProbabilities[currentState[0]][currentState[1]]).toFixed(2)];
+        return [
+          0,
+          0,
+          '下降',
+          (1 - transitionProbabilities[currentState[0]][currentState[1]]).toFixed(2)
+        ]
       } else {
-        return [currentState[0] + stride, currentState[1] + 1, "下降", (1 - transitionProbabilities[currentState[0]][currentState[1]]).toFixed(2)];
+        return [
+          currentState[0] + stride,
+          currentState[1] + 1,
+          '下降',
+          (1 - transitionProbabilities[currentState[0]][currentState[1]]).toFixed(2)
+        ]
       }
-
     }
   }
 
-
-  const handleCountUp = () => {
+  const handleCountUp = (): void => {
     setCountUp(countUp + 1)
     setTotalCount(totalCount + 1)
     setDecisionHistory(['上升', ...decisionHistory])
-    let nextState = getNextState(currentState, transitionProbabilities);
-    setPreviousState(currentState);
-    setCurrentState([nextState[0], nextState[1]]);
-    setTrueHistory([nextState[2], ...trueHistory]);
+    const nextState = getNextState(currentState, transitionProbabilities)
+    // setPreviousState(currentState)
+    setCurrentState([nextState[0], nextState[1]])
+    setTrueHistory([nextState[2], ...trueHistory])
 
     if (nextState[2] === '上升') {
       setTrueUp(trueUp + 1)
@@ -143,22 +161,22 @@ const App: React.FC = () => {
     }
 
     if (nextState[2] === '上升') {
-      setScore(score + 5);
+      setScore(score + 5)
     } else {
-      setScore(score - 5);
+      setScore(score - 5)
     }
     // console.log(nextState[0], nextState[1], nextState[2]);
   }
 
-  const handleCountDown = () => {
+  const handleCountDown = (): void => {
     setCountDown(countDown + 1)
     setTotalCount(totalCount + 1)
     setDecisionHistory(['下降', ...decisionHistory])
 
-    let nextState = getNextState(currentState, transitionProbabilities);
-    setPreviousState(currentState);
-    setCurrentState([nextState[0], nextState[1]]);
-    setTrueHistory([nextState[2], ...trueHistory]);
+    const nextState = getNextState(currentState, transitionProbabilities)
+    // setPreviousState(currentState)
+    setCurrentState([nextState[0], nextState[1]])
+    setTrueHistory([nextState[2], ...trueHistory])
 
     if (nextState[2] === '上升') {
       setTrueUp(trueUp + 1)
@@ -167,9 +185,9 @@ const App: React.FC = () => {
     }
 
     if (nextState[2] === '下降') {
-      setScore(score + 5);
+      setScore(score + 5)
     } else {
-      setScore(score - 5);
+      setScore(score - 5)
     }
   }
 
@@ -178,35 +196,39 @@ const App: React.FC = () => {
     return percentage.toFixed(2) + '%'
   }
 
-  const calculateViewPercentage = (count: number, up: boolean): string => {
-    if (historyLimit === null) {
-      const percentage = totalCount === 0 ? 0 : (count / totalCount) * 100
-      return percentage.toFixed(2) + '%'
-    } else {
-      const total = Math.min(totalCount, historyLimit)
-      let countUp = 0
-      let countDown = 0
-      for (let i = 0; i < total; i++) {
-        if (decisionHistory[i] === '上升') {
-          countUp += 1
-        } else {
-          countDown += 1
-        }
-      }
-      if (up) {
-        const percentage = total === 0 ? 0 : (countUp / total) * 100
-        return percentage.toFixed(2) + '%'
-      } else {
-        const percentage = total === 0 ? 0 : (countDown / total) * 100
-        return percentage.toFixed(2) + '%'
-      }
-    }
-  }
+  // const calculateViewPercentage = (count: number, up: boolean): string => {
+  //   if (historyLimit === null) {
+  //     const percentage = totalCount === 0 ? 0 : (count / totalCount) * 100
+  //     return percentage.toFixed(2) + '%'
+  //   } else {
+  //     const total = Math.min(totalCount, historyLimit)
+  //     let countUp = 0
+  //     let countDown = 0
+  //     for (let i = 0; i < total; i++) {
+  //       if (decisionHistory[i] === '上升') {
+  //         countUp += 1
+  //       } else {
+  //         countDown += 1
+  //       }
+  //     }
+  //     if (up) {
+  //       const percentage = total === 0 ? 0 : (countUp / total) * 100
+  //       return percentage.toFixed(2) + '%'
+  //     } else {
+  //       const percentage = total === 0 ? 0 : (countDown / total) * 100
+  //       return percentage.toFixed(2) + '%'
+  //     }
+  //   }
+  // }
 
-  const exportToCSV = () => {
+  const exportToCSV = (): void => {
     const csv = Papa.unparse({
       fields: ['决策', '真实', '对错'],
-      data: decisionHistory.map((decision, index) => [decision, trueHistory[index], decision === trueHistory[index] ? '✅' : '❌'])
+      data: decisionHistory.map((decision, index) => [
+        decision,
+        trueHistory[index],
+        decision === trueHistory[index] ? '✅' : '❌'
+      ])
     })
 
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
@@ -225,59 +247,59 @@ const App: React.FC = () => {
   }
 
   // DEPRECATED
-  const exportViewToCSV = () => {
-    const csv = Papa.unparse({
-      fields: ['决策历史'],
-      data: decisionHistory
-        .slice(0, historyLimit === null ? decisionHistory.length : historyLimit)
-        .map((decision) => [decision])
-    })
+  // const exportViewToCSV = (): void => {
+  //   const csv = Papa.unparse({
+  //     fields: ['决策历史'],
+  //     data: decisionHistory
+  //       .slice(0, historyLimit === null ? decisionHistory.length : historyLimit)
+  //       .map((decision) => [decision])
+  //   })
 
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
-    const link = document.createElement('a')
+  //   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+  //   const link = document.createElement('a')
 
-    if (link.download !== undefined) {
-      const url = URL.createObjectURL(blob)
-      link.setAttribute('href', url)
-      link.setAttribute('download', '决策历史.csv')
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-    } else {
-      alert('Your browser does not support the download feature. Please try another browser.')
-    }
-  }
+  //   if (link.download !== undefined) {
+  //     const url = URL.createObjectURL(blob)
+  //     link.setAttribute('href', url)
+  //     link.setAttribute('download', '决策历史.csv')
+  //     document.body.appendChild(link)
+  //     link.click()
+  //     document.body.removeChild(link)
+  //   } else {
+  //     alert('Your browser does not support the download feature. Please try another browser.')
+  //   }
+  // }
 
   // TODO： 撤销多次历史
-  const revokeHistory = () => {
-    if (decisionHistory.length === 0) {
-      return
-    }
+  // const revokeHistory = (): void => {
+  //   if (decisionHistory.length === 0) {
+  //     return
+  //   }
 
-    const last = decisionHistory[0]
-    setDecisionHistory(decisionHistory.slice(1, decisionHistory.length))
-    if (last === '上升') {
-      setCountUp(countUp - 1)
-    } else {
-      setCountDown(countDown - 1)
-    }
+  //   const last = decisionHistory[0]
+  //   setDecisionHistory(decisionHistory.slice(1, decisionHistory.length))
+  //   if (last === '上升') {
+  //     setCountUp(countUp - 1)
+  //   } else {
+  //     setCountDown(countDown - 1)
+  //   }
 
-    const trueLast = trueHistory[0]
-    setTrueHistory(trueHistory.slice(1, trueHistory.length))
-    if (trueLast === '上升') {
-      setTrueUp(trueUp - 1)
-    } else {
-      setTrueDown(trueDown - 1)
-    }
+  //   const trueLast = trueHistory[0]
+  //   setTrueHistory(trueHistory.slice(1, trueHistory.length))
+  //   if (trueLast === '上升') {
+  //     setTrueUp(trueUp - 1)
+  //   } else {
+  //     setTrueDown(trueDown - 1)
+  //   }
 
-    // TODO： 撤销多次历史,score
-    // setPreviousState(...);
-    setCurrentState(previousState);
+  //   // TODO： 撤销多次历史,score
+  //   // setPreviousState(...);
+  //   setCurrentState(previousState)
 
-    setTotalCount(totalCount - 1)
-  }
+  //   setTotalCount(totalCount - 1)
+  // }
 
-  const clearHistory = () => {
+  const clearHistory = (): void => {
     setDecisionHistory([])
     setTrueHistory([])
     setCountUp(0)
@@ -285,8 +307,8 @@ const App: React.FC = () => {
     setTrueUp(0)
     setTrueDown(0)
     setTotalCount(0)
-    setCurrentState([0, 0]);
-    setScore(0);
+    setCurrentState([0, 0])
+    setScore(0)
   }
 
   return (
@@ -350,10 +372,24 @@ const App: React.FC = () => {
               {decisionHistory
                 // .slice(0, historyLimit === null ? decisionHistory.length : historyLimit)
                 .map((decision, index) => (
-                  <div>
-                    <li hidden={
-                      historyLimit === null ? true : (index % historyLimit === (decisionHistory.length % historyLimit) ? false : true)} key={index}> -- {historyLimit === null ? 0 : (decisionHistory.length - index) / historyLimit}</li>
-                    <li key={index}>{decision} {trueHistory[index]} {decision === trueHistory[index] ? '✅' : '❌'}</li>
+                  <div className="decision-history-limit" key={index}>
+                    <li
+                      hidden={
+                        historyLimit === null
+                          ? true
+                          : index % historyLimit === decisionHistory.length % historyLimit
+                            ? false
+                            : true
+                      }
+                      key={index}
+                    >
+                      {' -- '}
+                      {historyLimit === null ? 0 : (decisionHistory.length - index) / historyLimit}
+                    </li>
+                    <li key={index}>
+                      {decision} {trueHistory[index]}{' '}
+                      {decision === trueHistory[index] ? '✅' : '❌'}
+                    </li>
                   </div>
                 ))}
             </ul>
@@ -369,13 +405,21 @@ const App: React.FC = () => {
       <div className={`app-container ${isSidebarVisible ? '' : 'sidebar-hidden'}`}>
         <div className="sidebar">
           <ul>
-            <li>"NumStates: " {numberOfStates}</li>
+            <li>
+              {'NumStates: '}
+              {numberOfStates}
+            </li>
             {/* <li>"TransitionProbabilities: " {transitionProbabilities}</li> */}
-            {mostLikely !== undefined ? mostLikely.map((item, index) => (<li key={index}>{item[2]}, {item[3]}</li>)) : null}
-
+            {mostLikely !== undefined
+              ? mostLikely.map((item, index) => (
+                  <li key={index}>
+                    {item[2]}, {item[3]}
+                  </li>
+                ))
+              : null}
           </ul>
         </div>
-      </div >
+      </div>
     </div>
   )
 }
